@@ -1,0 +1,406 @@
+{
+  "video_resolution": {
+    "width": 848,
+    "height": 478
+  },
+  "camera_info": {
+    "name": "video1.mp4",
+    "description": "Manually configured zones"
+  },
+  "carriageway_mode": "bidirectional",
+  "side_assignment": {
+    "method": "centroid_x_threshold",
+    "threshold": 424,
+    "description": "Vehicles with centroid_x < 424 assigned to LEFT, >= 424 to RIGHT"
+  },
+  "zones": {
+    "A_L": {
+      "type": "polygon",
+      "side": "LEFT",
+      "points": [
+        [
+          210,
+          44
+        ],
+        [
+          255,
+          46
+        ],
+        [
+          295,
+          45
+        ],
+        [
+          338,
+          45
+        ],
+        [
+          369,
+          51
+        ],
+        [
+          425,
+          81
+        ],
+        [
+          467,
+          107
+        ],
+        [
+          488,
+          120
+        ],
+        [
+          381,
+          132
+        ],
+        [
+          294,
+          142
+        ],
+        [
+          236,
+          144
+        ],
+        [
+          187,
+          150
+        ],
+        [
+          188,
+          95
+        ],
+        [
+          186,
+          65
+        ],
+        [
+          207,
+          47
+        ]
+      ]
+    },
+    "B_L": {
+      "type": "polygon",
+      "side": "LEFT",
+      "points": [
+        [
+          187,
+          154
+        ],
+        [
+          293,
+          145
+        ],
+        [
+          380,
+          130
+        ],
+        [
+          488,
+          122
+        ],
+        [
+          571,
+          171
+        ],
+        [
+          629,
+          206
+        ],
+        [
+          704,
+          246
+        ],
+        [
+          740,
+          268
+        ],
+        [
+          459,
+          291
+        ],
+        [
+          273,
+          308
+        ],
+        [
+          186,
+          323
+        ],
+        [
+          188,
+          238
+        ],
+        [
+          185,
+          154
+        ]
+      ]
+    },
+    "C_L": {
+      "type": "polygon",
+      "side": "LEFT",
+      "points": [
+        [
+          186,
+          323
+        ],
+        [
+          459,
+          292
+        ],
+        [
+          701,
+          273
+        ],
+        [
+          744,
+          268
+        ],
+        [
+          831,
+          341
+        ],
+        [
+          847,
+          419
+        ],
+        [
+          845,
+          468
+        ],
+        [
+          636,
+          475
+        ],
+        [
+          405,
+          475
+        ],
+        [
+          235,
+          476
+        ],
+        [
+          216,
+          473
+        ],
+        [
+          194,
+          391
+        ],
+        [
+          186,
+          323
+        ]
+      ]
+    },
+    "A_R": {
+      "type": "polygon",
+      "side": "RIGHT",
+      "points": [
+        [
+          835,
+          339
+        ],
+        [
+          746,
+          266
+        ],
+        [
+          707,
+          235
+        ],
+        [
+          762,
+          186
+        ],
+        [
+          799,
+          162
+        ],
+        [
+          830,
+          174
+        ],
+        [
+          843,
+          179
+        ],
+        [
+          843,
+          236
+        ],
+        [
+          845,
+          307
+        ],
+        [
+          839,
+          337
+        ]
+      ]
+    },
+    "B_R": {
+      "type": "polygon",
+      "side": "RIGHT",
+      "points": [
+        [
+          707,
+          233
+        ],
+        [
+          622,
+          188
+        ],
+        [
+          579,
+          160
+        ],
+        [
+          534,
+          128
+        ],
+        [
+          553,
+          121
+        ],
+        [
+          582,
+          113
+        ],
+        [
+          614,
+          102
+        ],
+        [
+          637,
+          92
+        ],
+        [
+          659,
+          95
+        ],
+        [
+          687,
+          111
+        ],
+        [
+          727,
+          130
+        ],
+        [
+          759,
+          151
+        ],
+        [
+          801,
+          164
+        ],
+        [
+          746,
+          204
+        ],
+        [
+          711,
+          235
+        ]
+      ]
+    },
+    "C_R": {
+      "type": "polygon",
+      "side": "RIGHT",
+      "points": [
+        [
+          536,
+          127
+        ],
+        [
+          494,
+          108
+        ],
+        [
+          452,
+          88
+        ],
+        [
+          421,
+          72
+        ],
+        [
+          394,
+          57
+        ],
+        [
+          420,
+          49
+        ],
+        [
+          498,
+          63
+        ],
+        [
+          544,
+          75
+        ],
+        [
+          583,
+          75
+        ],
+        [
+          594,
+          79
+        ],
+        [
+          618,
+          86
+        ],
+        [
+          639,
+          90
+        ],
+        [
+          594,
+          109
+        ],
+        [
+          536,
+          128
+        ]
+      ]
+    }
+  },
+  "flow_mappings": {
+    "LEFT": {
+      "A_L-B_L-C_L": "normal",
+      "C_L-B_L-A_L": "wrong_way",
+      "description": "Left carriageway: A_L-B_L-C_L is correct flow"
+    },
+    "RIGHT": {
+      "C_R-B_R-A_R": "normal",
+      "A_R-B_R-C_R": "wrong_way",
+      "description": "Right carriageway: C_R-B_R-A_R is correct flow"
+    }
+  },
+  "direction_vectors": {
+    "LEFT": {
+      "expected_normal": null,
+      "expected_wrong": null,
+      "computation": "dynamic",
+      "description": "Computed from normal-flow tracks on left side at runtime"
+    },
+    "RIGHT": {
+      "expected_normal": null,
+      "expected_wrong": null,
+      "computation": "dynamic",
+      "description": "Computed from normal-flow tracks on right side at runtime"
+    }
+  },
+  "validation_params": {
+    "MIN_ZONE_CONFIRM": 3,
+    "DOT_THRESH": 0.3,
+    "DISP_WINDOW": 6,
+    "MIN_DISPLACEMENT": 1.0
+  }
+}

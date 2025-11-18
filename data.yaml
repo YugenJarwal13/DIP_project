@@ -1,0 +1,4 @@
+train: yolov3_data/images/train
+val: yolov3_data/images/val
+nc: 1
+names: ['vehicle']

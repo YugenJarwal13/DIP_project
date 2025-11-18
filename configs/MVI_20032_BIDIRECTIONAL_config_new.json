@@ -1,0 +1,434 @@
+{
+  "video_resolution": {
+    "width": 960,
+    "height": 540
+  },
+  "camera_info": {
+    "name": "img00001.jpg",
+    "description": "Manually configured zones"
+  },
+  "carriageway_mode": "bidirectional",
+  "side_assignment": {
+    "method": "centroid_x_threshold",
+    "threshold": 480,
+    "description": "Vehicles with centroid_x < 480 assigned to LEFT, >= 480 to RIGHT"
+  },
+  "zones": {
+    "A_L": {
+      "type": "polygon",
+      "side": "LEFT",
+      "points": [
+        [
+          487,
+          35
+        ],
+        [
+          526,
+          37
+        ],
+        [
+          527,
+          91
+        ],
+        [
+          530,
+          145
+        ],
+        [
+          431,
+          146
+        ],
+        [
+          355,
+          146
+        ],
+        [
+          417,
+          99
+        ],
+        [
+          456,
+          64
+        ],
+        [
+          485,
+          39
+        ]
+      ]
+    },
+    "B_L": {
+      "type": "polygon",
+      "side": "LEFT",
+      "points": [
+        [
+          352,
+          146
+        ],
+        [
+          431,
+          148
+        ],
+        [
+          506,
+          147
+        ],
+        [
+          532,
+          146
+        ],
+        [
+          533,
+          216
+        ],
+        [
+          535,
+          278
+        ],
+        [
+          536,
+          320
+        ],
+        [
+          411,
+          320
+        ],
+        [
+          311,
+          321
+        ],
+        [
+          221,
+          317
+        ],
+        [
+          172,
+          316
+        ],
+        [
+          239,
+          251
+        ],
+        [
+          287,
+          207
+        ],
+        [
+          329,
+          169
+        ],
+        [
+          353,
+          146
+        ]
+      ]
+    },
+    "C_L": {
+      "type": "polygon",
+      "side": "LEFT",
+      "points": [
+        [
+          170,
+          318
+        ],
+        [
+          278,
+          321
+        ],
+        [
+          370,
+          321
+        ],
+        [
+          469,
+          320
+        ],
+        [
+          538,
+          320
+        ],
+        [
+          541,
+          412
+        ],
+        [
+          544,
+          490
+        ],
+        [
+          544,
+          539
+        ],
+        [
+          411,
+          538
+        ],
+        [
+          277,
+          536
+        ],
+        [
+          145,
+          537
+        ],
+        [
+          63,
+          536
+        ],
+        [
+          4,
+          536
+        ],
+        [
+          4,
+          459
+        ],
+        [
+          75,
+          400
+        ],
+        [
+          129,
+          354
+        ],
+        [
+          170,
+          318
+        ]
+      ]
+    },
+    "A_R": {
+      "type": "polygon",
+      "side": "RIGHT",
+      "points": [
+        [
+          609,
+          539
+        ],
+        [
+          598,
+          466
+        ],
+        [
+          586,
+          398
+        ],
+        [
+          581,
+          340
+        ],
+        [
+          577,
+          318
+        ],
+        [
+          642,
+          311
+        ],
+        [
+          714,
+          307
+        ],
+        [
+          824,
+          298
+        ],
+        [
+          908,
+          291
+        ],
+        [
+          959,
+          287
+        ],
+        [
+          958,
+          354
+        ],
+        [
+          958,
+          409
+        ],
+        [
+          958,
+          462
+        ],
+        [
+          959,
+          516
+        ],
+        [
+          955,
+          538
+        ],
+        [
+          825,
+          537
+        ],
+        [
+          710,
+          538
+        ],
+        [
+          640,
+          536
+        ],
+        [
+          612,
+          536
+        ]
+      ]
+    },
+    "B_R": {
+      "type": "polygon",
+      "side": "RIGHT",
+      "points": [
+        [
+          574,
+          317
+        ],
+        [
+          567,
+          244
+        ],
+        [
+          556,
+          194
+        ],
+        [
+          545,
+          147
+        ],
+        [
+          617,
+          140
+        ],
+        [
+          672,
+          140
+        ],
+        [
+          716,
+          136
+        ],
+        [
+          785,
+          181
+        ],
+        [
+          845,
+          221
+        ],
+        [
+          903,
+          255
+        ],
+        [
+          951,
+          287
+        ],
+        [
+          805,
+          298
+        ],
+        [
+          673,
+          309
+        ],
+        [
+          593,
+          317
+        ],
+        [
+          574,
+          319
+        ]
+      ]
+    },
+    "C_R": {
+      "type": "polygon",
+      "side": "RIGHT",
+      "points": [
+        [
+          547,
+          145
+        ],
+        [
+          536,
+          91
+        ],
+        [
+          532,
+          51
+        ],
+        [
+          531,
+          37
+        ],
+        [
+          565,
+          38
+        ],
+        [
+          605,
+          58
+        ],
+        [
+          646,
+          88
+        ],
+        [
+          681,
+          113
+        ],
+        [
+          716,
+          136
+        ],
+        [
+          633,
+          141
+        ],
+        [
+          569,
+          145
+        ],
+        [
+          548,
+          147
+        ]
+      ]
+    }
+  },
+  "flow_mappings": {
+    "LEFT": {
+      "A_L-B_L-C_L": "normal",
+      "C_L-B_L-A_L": "wrong_way",
+      "description": "Left carriageway: A_L-B_L-C_L is correct flow"
+    },
+    "RIGHT": {
+      "C_R-B_R-A_R": "normal",
+      "A_R-B_R-C_R": "wrong_way",
+      "description": "Right carriageway: C_R-B_R-A_R is correct flow"
+    }
+  },
+  "direction_vectors": {
+    "LEFT": {
+      "expected_normal": null,
+      "expected_wrong": null,
+      "computation": "dynamic",
+      "description": "Computed from normal-flow tracks on left side at runtime"
+    },
+    "RIGHT": {
+      "expected_normal": null,
+      "expected_wrong": null,
+      "computation": "dynamic",
+      "description": "Computed from normal-flow tracks on right side at runtime"
+    }
+  },
+  "validation_params": {
+    "MIN_ZONE_CONFIRM": 3,
+    "DOT_THRESH": 0.3,
+    "DISP_WINDOW": 6,
+    "MIN_DISPLACEMENT": 1.0
+  }
+}

@@ -1,0 +1,108 @@
+################################################################################
+# DATASETS - Exclude all dataset directories
+################################################################################
+UA-DETRAC DATASET/
+data/subset/
+data/raw/
+data/annotations_yolo/
+yolov3_data/
+Wrongway_videos/
+
+################################################################################
+# RESULTS & OUTPUTS - Exclude all generated results
+################################################################################
+results/
+outputs/
+runs/
+experiments/
+detection_log.txt
+notebooks/
+detections/
+detections_txt/
+tracks/
+tracks_simulated/
+alerts/
+alerts_strict/
+alerts_strict_fix/
+alerts_strict_fix_v2/
+alerts_strict_fix_v3/
+alerts_strict_v2/
+debug_frames/
+demo_videos/
+eval_reports/
+
+################################################################################
+# MODEL WEIGHTS - Keep only best.pt in repo, exclude rest
+################################################################################
+models/*.pt
+models/*.pth
+models/*.weights
+models/*.onnx
+# Keep the primary model
+!best.pt
+
+################################################################################
+# PYTHON ENVIRONMENT & CACHE
+################################################################################
+venv/
+.venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+
+################################################################################
+# IDE & EDITOR FILES
+################################################################################
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.spyderproject
+.spyproject
+
+################################################################################
+# OS-SPECIFIC FILES
+################################################################################
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+################################################################################
+# LOGS & TEMPORARY FILES
+################################################################################
+*.log
+*.tmp
+*.temp
+directory_structure.txt
+selected sequences.txt
+new_summary.txt
+
+################################################################################
+# VIDEO & DEMO FILES - Exclude generated videos
+################################################################################
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.wmv
+BIDIRECTIONAL_DEMO.mp4
+
+################################################################################
+# EXTERNALS - Exclude external libraries (YOLOv3)
+################################################################################
+externals/yolov3/
+
+################################################################################
+# PLANS & TEST CONFIGS
+################################################################################
+plans/

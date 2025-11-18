@@ -1,0 +1,184 @@
+{
+  "sequence_id": "MVI_20032_BIDIRECTIONAL",
+  "frame_pattern": "data/subset/MVI_20032/img00435.jpg",
+  "fps": 25,
+  "image_width": 960,
+  "image_height": 540,
+  "homography": null,
+  "coordinate_space": "image",
+  "carriageway_mode": "bidirectional",
+  "side_assignment": {
+    "method": "centroid_x_threshold",
+    "threshold": 480,
+    "description": "Vehicles with centroid_x < 480 assigned to LEFT, >= 480 to RIGHT"
+  },
+  "zones": {
+    "A_L": {
+      "type": "polygon",
+      "side": "LEFT",
+      "points": [
+        [473, 8],
+        [501, 8],
+        [536, 8],
+        [568, 7],
+        [593, 21],
+        [619, 41],
+        [647, 57],
+        [679, 78],
+        [712, 100],
+        [693, 102],
+        [634, 105],
+        [565, 107],
+        [491, 108],
+        [438, 108],
+        [377, 108],
+        [420, 71],
+        [450, 36],
+        [471, 10]
+      ]
+    },
+    "B_L": {
+      "type": "polygon",
+      "side": "LEFT",
+      "points": [
+        [377, 110],
+        [453, 111],
+        [521, 110],
+        [608, 109],
+        [684, 105],
+        [715, 103],
+        [760, 139],
+        [819, 181],
+        [867, 211],
+        [909, 241],
+        [947, 278],
+        [950, 306],
+        [951, 334],
+        [876, 339],
+        [744, 342],
+        [622, 344],
+        [546, 347],
+        [454, 352],
+        [334, 350],
+        [247, 347],
+        [144, 341],
+        [111, 339],
+        [178, 276],
+        [232, 231],
+        [298, 172],
+        [342, 137],
+        [376, 108]
+      ]
+    },
+    "C_L": {
+      "type": "polygon",
+      "side": "LEFT",
+      "points": [
+        [110, 337],
+        [199, 344],
+        [276, 348],
+        [363, 350],
+        [487, 350],
+        [580, 349],
+        [669, 346],
+        [748, 346],
+        [837, 334],
+        [910, 339],
+        [952, 334],
+        [955, 379],
+        [955, 426],
+        [955, 486],
+        [953, 522],
+        [781, 530],
+        [638, 533],
+        [475, 532],
+        [336, 530],
+        [184, 530],
+        [65, 532],
+        [12, 530],
+        [8, 498],
+        [8, 436],
+        [47, 397],
+        [110, 337]
+      ]
+    },
+    "A_R": {
+      "type": "polygon",
+      "side": "RIGHT",
+      "points": [
+        [0, 0],
+        [100, 0],
+        [200, 0],
+        [300, 0],
+        [300, 100],
+        [200, 100],
+        [100, 100],
+        [0, 100]
+      ],
+      "notes": "PLACEHOLDER - Must be manually annotated for right carriageway"
+    },
+    "B_R": {
+      "type": "polygon",
+      "side": "RIGHT",
+      "points": [
+        [0, 100],
+        [100, 100],
+        [200, 100],
+        [300, 100],
+        [300, 200],
+        [200, 200],
+        [100, 200],
+        [0, 200]
+      ],
+      "notes": "PLACEHOLDER - Must be manually annotated for right carriageway"
+    },
+    "C_R": {
+      "type": "polygon",
+      "side": "RIGHT",
+      "points": [
+        [0, 200],
+        [100, 200],
+        [200, 200],
+        [300, 200],
+        [300, 300],
+        [200, 300],
+        [100, 300],
+        [0, 300]
+      ],
+      "notes": "PLACEHOLDER - Must be manually annotated for right carriageway"
+    }
+  },
+  "flow_mappings": {
+    "LEFT": {
+      "A_L-B_L-C_L": "normal",
+      "C_L-B_L-A_L": "wrong_way",
+      "description": "Left carriageway: A_L→B_L→C_L is correct downward flow"
+    },
+    "RIGHT": {
+      "C_R-B_R-A_R": "normal",
+      "A_R-B_R-C_R": "wrong_way",
+      "description": "Right carriageway: C_R→B_R→A_R is correct upward flow (opposite direction)"
+    }
+  },
+  "direction_vectors": {
+    "LEFT": {
+      "expected_normal": null,
+      "expected_wrong": null,
+      "computation": "dynamic",
+      "description": "Computed from normal-flow tracks on left side at runtime"
+    },
+    "RIGHT": {
+      "expected_normal": null,
+      "expected_wrong": null,
+      "computation": "dynamic",
+      "description": "Computed from normal-flow tracks on right side at runtime"
+    }
+  },
+  "validation_params": {
+    "MIN_ZONE_CONFIRM": 3,
+    "DOT_THRESH": 0.3,
+    "DISP_WINDOW": 6,
+    "MIN_DISPLACEMENT": 1.0
+  },
+  "notes": "Bi-directional highway configuration. LEFT zones are annotated from original MVI_20032_config.json. RIGHT zones are PLACEHOLDERS and must be manually drawn using the updated zone creation tool."
+}
