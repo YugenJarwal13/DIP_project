@@ -85,7 +85,6 @@ ehthumbs.db
 *.temp
 directory_structure.txt
 selected sequences.txt
-new_summary.txt
 
 ################################################################################
 # VIDEO & DEMO FILES - Exclude generated videos

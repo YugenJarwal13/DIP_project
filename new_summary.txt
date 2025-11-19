@@ -1,0 +1,907 @@
+================================================================================
+WRONG-WAY VEHICLE DETECTION SYSTEM - COMPLETE PIPELINE DOCUMENTATION
+================================================================================
+Author: AI_Project Team
+Last Updated: November 19, 2025
+Model: YOLOv10m (best.pt)
+Framework: Ultralytics YOLO + Kalman SORT Tracking + Zone-Based Validation
+
+================================================================================
+1. SYSTEM OVERVIEW
+================================================================================
+
+The wrong-way detection system processes highway surveillance videos to identify
+vehicles traveling in the wrong direction using a multi-stage pipeline:
+
+STAGE 1: Frame Extraction
+STAGE 2: Object Detection (YOLOv10m)
+STAGE 3: Multi-Object Tracking (Kalman Filter + Hungarian Algorithm)
+STAGE 4: Side Assignment (for bi-directional highways)
+STAGE 5: Zone-Based Trajectory Validation
+STAGE 6: Wrong-Way Classification & Alert Generation
+STAGE 7: Visualization & Reporting
+
+================================================================================
+2. STAGE 1: FRAME EXTRACTION
+================================================================================
+
+Input: Raw video file (MP4, AVI, etc.)
+Output: Individual frame images (JPG format)
+
+Process:
+--------
+1. Open video using OpenCV: cv2.VideoCapture(video_path)
+2. Read video metadata:
+   - Frame width (W), height (H)
+   - Frames per second (FPS)
+   - Total frame count (N)
+3. Extract frames at specified interval (default: every frame)
+4. Save as sequential images: img00000.jpg, img00001.jpg, ...
+
+Location: scripts/detect_wrong_way_from_video.py :: extract_frames_from_video()
+
+================================================================================
+3. STAGE 2: OBJECT DETECTION (YOLOv10m)
+================================================================================
+
+Model: YOLOv10m (best.pt)
+Input Size: 640×640 pixels
+Confidence Threshold: 0.25 (default) or 0.15 (relaxed)
+Class: Single class 'vehicle' (class 0)
+
+Detection Process:
+------------------
+For each frame f_i:
+  1. Load image I_i
+  2. Preprocess: Resize to 640×640, normalize to [0,1]
+  3. Forward pass through YOLOv10m network:
+     
+     YOLOv10 Architecture:
+     - Backbone: CSPDarknet with C2f modules
+     - Neck: PANet feature pyramid
+     - Head: Anchor-free detection with NMS-free training
+     
+  4. Post-processing:
+     - Filter detections by confidence: score ≥ conf_threshold
+     - Output: List of bounding boxes B_i = [(x1,y1,x2,y2,score), ...]
+     
+  5. Convert to absolute coordinates:
+     x1, y1, x2, y2 in pixel space [0, W] × [0, H]
+
+Mathematical Formulation:
+-------------------------
+Detection at frame t:
+  D_t = {(b_1, s_1), (b_2, s_2), ..., (b_n, s_n)}
+  
+Where:
+  b_i = [x1_i, y1_i, x2_i, y2_i]  (bounding box)
+  s_i ∈ [0,1]                      (confidence score)
+  
+Centroid calculation:
+  c_i = ((x1_i + x2_i)/2, (y1_i + y2_i)/2)
+
+Location: scripts/detect_wrong_way_from_video.py :: run_detection_and_tracking()
+
+================================================================================
+4. STAGE 3: MULTI-OBJECT TRACKING (KALMAN SORT)
+================================================================================
+
+Algorithm: Kalman Filter + Hungarian Assignment (SORT variant)
+Purpose: Maintain consistent vehicle IDs across frames
+
+KALMAN FILTER STATE MODEL
+------------------------------
+State Vector (6D):
+  x = [c_x, c_y, v_x, v_y, w, h]^T
+  
+Where:
+  c_x, c_y = centroid position
+  v_x, v_y = velocity (pixels/frame)
+  w, h     = bounding box width and height
+
+State Transition (Constant Velocity Model):
+  x_{t+1} = F · x_t + w_t
+  
+State Transition Matrix F:
+  ┌ 1  0  Δt  0  0  0 ┐
+  │ 0  1   0 Δt  0  0 │
+  │ 0  0   1  0  0  0 │
+  │ 0  0   0  1  0  0 │
+  │ 0  0   0  0  1  0 │
+  └ 0  0   0  0  0  1 ┘
+  
+  where Δt = 1 (one frame interval)
+
+Process Noise Covariance Q:
+  Q = I_6×6 · 1.0
+
+4.2 MEASUREMENT MODEL
+---------------------
+Measurement Vector (4D):
+  z = [c_x, c_y, w, h]^T
+  
+Measurement Matrix H:
+  ┌ 1  0  0  0  0  0 ┐
+  │ 0  1  0  0  0  0 │
+  │ 0  0  0  0  1  0 │
+  └ 0  0  0  0  0  1 ┘
+
+Measurement Noise Covariance R:
+  R = I_4×4 · 10.0
+
+KALMAN FILTER EQUATIONS
+----------------------------
+Prediction Step:
+  x̂_{t|t-1} = F · x_{t-1|t-1}
+  P_{t|t-1} = F · P_{t-1|t-1} · F^T + Q
+
+Update Step (when detection matched):
+  Innovation: y_t = z_t - H · x̂_{t|t-1}
+  Innovation Covariance: S_t = H · P_{t|t-1} · H^T + R
+  Kalman Gain: K_t = P_{t|t-1} · H^T · S_t^{-1}
+  State Update: x_{t|t} = x̂_{t|t-1} + K_t · y_t
+  Covariance Update: P_{t|t} = (I - K_t · H) · P_{t|t-1}
+
+4.4 DATA ASSOCIATION (HUNGARIAN ALGORITHM)
+-------------------------------------------
+Match detections to existing tracks using IoU (Intersection over Union):
+
+IoU Calculation:
+  For detection bbox d and track bbox t:
+  
+  IoU(d, t) = Area(d ∩ t) / Area(d ∪ t)
+  
+  where:
+    Intersection = max(0, min(x2_d, x2_t) - max(x1_d, x1_t)) ×
+                   max(0, min(y2_d, y2_t) - max(y1_d, y1_t))
+    Union = Area(d) + Area(t) - Intersection
+
+Cost Matrix Construction:
+  C[i,j] = 1 - IoU(detection_i, track_j)
+
+Hungarian Assignment:
+  Solve: min_{assignment} Σ C[i,j]
+  Subject to: Each detection assigned to ≤1 track
+              Each track assigned to ≤1 detection
+  
+  Reject assignments where IoU < threshold (default 0.3)
+
+Track Management:
+  - New Detection (no match): Create new track with ID
+  - Matched Detection: Update Kalman filter
+  - Unmatched Track: Increment time_since_update
+  - Old Track (time_since_update > max_age): Delete track
+  
+Track Confirmation:
+  Track is "confirmed" when hits ≥ min_hits (default 3)
+  Only confirmed tracks used for validation
+
+Location: src/tracking/kalman_tracker.py :: KalmanTrack, associate_detections_to_trackers()
+
+================================================================================
+5. STAGE 4: SIDE ASSIGNMENT (BI-DIRECTIONAL HIGHWAYS)
+================================================================================
+
+Purpose: For highways with traffic in both directions, assign each vehicle to
+         LEFT or RIGHT carriageway to enable side-specific wrong-way detection
+
+WHY THIS IS NEEDED:
+On bi-directional highways, vehicles on different sides travel in OPPOSITE 
+directions. Without side assignment:
+  - Cannot distinguish normal from wrong-way flow
+  - LEFT side: A→B→C is normal, C→B→A is wrong-way
+  - RIGHT side: C→B→A is normal, A→B→C is wrong-way
+  
+Side assignment must happen BEFORE zone validation to apply correct flow rules.
+
+================================================================================
+5.1 METHOD 1: CENTROID X THRESHOLD (Simple)
+================================================================================
+
+ALGORITHM:
+----------
+For each track T with centroid (cx, cy):
+  
+  1. Compute threshold:
+     threshold = frame_width / 2
+  
+  2. Assign side:
+     side(T) = {
+       "LEFT"  if cx < threshold
+       "RIGHT" if cx ≥ threshold
+     }
+
+MATHEMATICAL FORMULATION:
+-------------------------
+Given:
+  - Frame dimensions: W × H pixels
+  - Track centroid: c = (cx, cy)
+  - Threshold: τ = W / 2
+
+Assignment function:
+  S(c) = {
+    L  if cx < τ
+    R  if cx ≥ τ
+  }
+
+STEP-BY-STEP EXAMPLE:
+---------------------
+Video: 1920×1080 pixels
+
+Step 1: Calculate threshold
+  τ = 1920 / 2 = 960 pixels
+
+Step 2: Process tracks
+  Track 1: centroid = (800, 400)
+    → cx = 800 < 960
+    → side = LEFT
+  
+  Track 2: centroid = (1200, 300)
+    → cx = 1200 ≥ 960
+    → side = RIGHT
+  
+  Track 3: centroid = (450, 600)
+    → cx = 450 < 960
+    → side = LEFT
+
+Step 3: Update track data
+  Each track now has 'side' field added:
+  {
+    "track_id": 1,
+    "centroid": [800, 400],
+    "side": "LEFT",
+    ...
+  }
+
+IMPLEMENTATION (Pseudo-code):
+-----------------------------
+```python
+def assign_side_by_threshold(centroid_x, threshold):
+    if centroid_x < threshold:
+        return "LEFT"
+    else:
+        return "RIGHT"
+
+# Applied to all tracks in frame
+threshold = frame_width / 2
+for track in frame_tracks:
+    cx = track['centroid'][0]  # X coordinate
+    track['side'] = assign_side_by_threshold(cx, threshold)
+```
+
+WHEN TO USE:
+------------
+✓ Camera positioned perpendicular to highway (straight-on view)
+✓ Road divider approximately at frame center
+✓ Minimal perspective distortion
+✓ Fast computation needed (real-time processing)
+
+LIMITATIONS:
+------------
+✗ Fails if camera is angled (divider not centered)
+✗ Inaccurate for curved roads
+✗ Cannot handle roads with offset dividers
+
+================================================================================
+5.2 METHOD 2: K-MEANS CLUSTERING (Robust)
+================================================================================
+
+ALGORITHM:
+----------
+Automatically discovers LEFT/RIGHT division by analyzing spatial distribution
+of ALL vehicle positions in the scene.
+
+Step 1: Collect Data
+  Extract centroids from all tracks in current frame:
+  C = {(x_1, y_1), (x_2, y_2), ..., (x_n, y_n)}
+
+Step 2: Feature Extraction
+  Use only X coordinates (lateral position):
+  X = [x_1, x_2, ..., x_n]
+  
+  Reshape for scikit-learn:
+  X_matrix = [[x_1], [x_2], ..., [x_n]]
+
+Step 3: K-Means Clustering (k=2)
+  Initialize: Randomly select 2 cluster centers μ_1, μ_2
+  
+  Iterate until convergence:
+    a. Assignment Step:
+       For each point x_i:
+         c(i) = argmin_j ||x_i - μ_j||²
+    
+    b. Update Step:
+       For each cluster j:
+         μ_j = mean({x_i | c(i) = j})
+  
+  Convergence: When cluster assignments stop changing
+
+Step 4: Identify LEFT vs RIGHT
+  μ_left = min(μ_1, μ_2)   # Cluster with smaller X values
+  μ_right = max(μ_1, μ_2)  # Cluster with larger X values
+
+Step 5: Assign Tracks
+  For each track i:
+    side(i) = {
+      "LEFT"  if x_i closer to μ_left
+      "RIGHT" if x_i closer to μ_right
+    }
+
+MATHEMATICAL FORMULATION:
+-------------------------
+Objective Function (minimize within-cluster variance):
+  J = Σ_{i=1}^n ||x_i - μ_{c(i)}||²
+
+Where:
+  n = number of tracks
+  x_i = X coordinate of track i
+  c(i) ∈ {1, 2} = cluster assignment for track i
+  μ_j = centroid of cluster j
+
+Distance Metric (Euclidean in 1D):
+  d(x_i, μ_j) = |x_i - μ_j|
+
+Assignment Rule:
+  c(i) = {
+    1  if |x_i - μ_1| < |x_i - μ_2|
+    2  otherwise
+  }
+
+STEP-BY-STEP EXAMPLE:
+---------------------
+Frame with 6 vehicles:
+
+Step 1: Collect centroids
+  Track 1: (450, 200)
+  Track 2: (520, 350)
+  Track 3: (480, 500)
+  Track 4: (1300, 180)
+  Track 5: (1450, 400)
+  Track 6: (1380, 520)
+
+Step 2: Extract X coordinates
+  X = [450, 520, 480, 1300, 1450, 1380]
+
+Step 3: Initialize K-means (random initialization)
+  Iteration 0:
+    μ_1 = 480 (random)
+    μ_2 = 1380 (random)
+
+Step 4: Assignment (iteration 1)
+  Track 1: |450-480|=30 < |450-1380|=930 → Cluster 1
+  Track 2: |520-480|=40 < |520-1380|=860 → Cluster 1
+  Track 3: |480-480|=0  < |480-1380|=900 → Cluster 1
+  Track 4: |1300-480|=820 > |1300-1380|=80 → Cluster 2
+  Track 5: |1450-480|=970 > |1450-1380|=70 → Cluster 2
+  Track 6: |1380-480|=900 > |1380-1380|=0 → Cluster 2
+
+Step 5: Update centroids
+  μ_1 = mean(450, 520, 480) = 483.33
+  μ_2 = mean(1300, 1450, 1380) = 1376.67
+
+Step 6: Re-assign (iteration 2)
+  (Assignments remain same → CONVERGED)
+
+Step 7: Identify LEFT/RIGHT
+  μ_left = min(483.33, 1376.67) = 483.33 → Cluster 1 is LEFT
+  μ_right = max(483.33, 1376.67) = 1376.67 → Cluster 2 is RIGHT
+
+Step 8: Final assignments
+  Tracks 1,2,3 → LEFT
+  Tracks 4,5,6 → RIGHT
+
+IMPLEMENTATION (Pseudo-code):
+-----------------------------
+```python
+from sklearn.cluster import KMeans
+import numpy as np
+
+def assign_sides_by_kmeans(track_centroids):
+    # Extract X coordinates
+    X = np.array([[c[0]] for c in track_centroids])
+    
+    # Apply K-means
+    kmeans = KMeans(n_clusters=2, random_state=42)
+    labels = kmeans.fit_predict(X)
+    
+    # Get cluster centers
+    centers = kmeans.cluster_centers_.flatten()
+    left_cluster = np.argmin(centers)   # Cluster with min X
+    right_cluster = np.argmax(centers)  # Cluster with max X
+    
+    # Assign sides
+    assignments = {}
+    for i, label in enumerate(labels):
+        if label == left_cluster:
+            assignments[i] = "LEFT"
+        else:
+            assignments[i] = "RIGHT"
+    
+    return assignments
+
+# Apply to frame tracks
+centroids = [track['centroid'] for track in tracks]
+assignments = assign_sides_by_kmeans(centroids)
+
+for i, track in enumerate(tracks):
+    track['side'] = assignments[i]
+```
+
+WHEN TO USE:
+------------
+✓ Camera at oblique angle to highway
+✓ Road divider not centered in frame
+✓ Curved roads or perspective distortion
+✓ Variable lane widths
+✓ Multiple vehicles available for clustering
+
+ADVANTAGES OVER THRESHOLD:
+---------------------------
+1. Automatic adaptation to camera angle
+2. Handles non-centered dividers
+3. Robust to perspective effects
+4. No manual threshold tuning needed
+
+EDGE CASE HANDLING:
+-------------------
+If n < 2 (fewer than 2 tracks):
+  Fall back to simple midpoint threshold:
+  midpoint = mean([x_1, x_2, ..., x_n])
+  Assign: LEFT if x < midpoint, else RIGHT
+
+================================================================================
+5.3 INTEGRATION INTO PIPELINE
+================================================================================
+
+TIMING:
+-------
+Side assignment occurs AFTER tracking, BEFORE validation:
+
+  Frame t → Detection → Tracking → SIDE ASSIGNMENT → Zone Validation
+                                        ↑
+                                   Happens here
+
+CODE FLOW:
+----------
+```python
+# Step 1: Run detection and tracking
+for frame in video:
+    detections = yolo_model.predict(frame)
+    tracks = kalman_tracker.update(detections)
+    
+    # Step 2: Assign sides (if bi-directional mode)
+    if config['carriageway_mode'] == 'bidirectional':
+        side_config = config['side_assignment']
+        
+        if side_config['method'] == 'centroid_x_threshold':
+            threshold = side_config['threshold']
+            for track in tracks:
+                cx = track['centroid'][0]
+                track['side'] = assign_side_by_threshold(cx, threshold)
+        
+        elif side_config['method'] == 'kmeans':
+            centroids = [t['centroid'] for t in tracks]
+            assignments = assign_sides_by_kmeans(centroids)
+            for i, track in enumerate(tracks):
+                track['side'] = assignments[i]
+    
+    # Step 3: Save tracks with side labels
+    save_tracks(tracks, frame_number)
+```
+
+CONFIGURATION EXAMPLE:
+----------------------
+```json
+{
+  "carriageway_mode": "bidirectional",
+  "side_assignment": {
+    "method": "centroid_x_threshold",
+    "threshold": 960,
+    "description": "Vehicles with cx < 960 → LEFT, cx ≥ 960 → RIGHT"
+  },
+  "flow_mappings": {
+    "LEFT": {
+      "A_L-B_L-C_L": "normal",
+      "C_L-B_L-A_L": "wrong_way"
+    },
+    "RIGHT": {
+      "C_R-B_R-A_R": "normal",
+      "A_R-B_R-C_R": "wrong_way"
+    }
+  }
+}
+```
+
+USAGE IN VALIDATION:
+--------------------
+After side assignment, each track has a 'side' field used for pattern matching:
+
+```python
+# During validation
+for track in all_tracks:
+    side = track['side']  # "LEFT" or "RIGHT"
+    zone_sequence = track['confirmed_zones']  # e.g., ["C_L", "B_L", "A_L"]
+    
+    # Look up side-specific flow rules
+    flow_rules = config['flow_mappings'][side]
+    
+    pattern = '-'.join(zone_sequence[-3:])  # "C_L-B_L-A_L"
+    
+    if flow_rules.get(pattern) == "wrong_way":
+        generate_alert(track)
+```
+
+WHY SIDE ASSIGNMENT MATTERS:
+-----------------------------
+Without side assignment, this scenario fails:
+
+  Scenario: Vehicle on RIGHT side following normal flow C_R→B_R→A_R
+  
+  WITHOUT side assignment:
+    - System only knows zones: C, B, A
+    - Matches pattern C→B→A
+    - Incorrectly flags as WRONG-WAY (thinks it's going backwards)
+  
+  WITH side assignment:
+    - System knows: side=RIGHT, zones: C_R, B_R, A_R
+    - Matches pattern C_R-B_R-A_R
+    - Correctly identifies as NORMAL (right side allows this direction)
+
+Location: src/utils/side_assignment.py :: assign_side_by_threshold(), assign_sides_by_kmeans(), update_track_sides()
+
+================================================================================
+6. STAGE 5: ZONE-BASED TRAJECTORY VALIDATION
+================================================================================
+
+Purpose: Track vehicle movement through predefined road zones
+
+6.1 ZONE CONFIGURATION
+----------------------
+For UNIDIRECTIONAL highways (3 zones):
+  - Zone A: Entry/top of frame
+  - Zone B: Middle section
+  - Zone C: Exit/bottom of frame
+
+For BIDIRECTIONAL highways (6 zones):
+  LEFT side: A_L (entry), B_L (middle), C_L (exit)
+  RIGHT side: A_R (entry), B_R (middle), C_R (exit)
+
+Zone Representation:
+  Each zone is a polygon defined by pixel coordinates:
+  Zone_i = Polygon([(x1,y1), (x2,y2), ..., (x_n,y_n)])
+
+Zone Membership Test:
+  Point-in-polygon algorithm using Shapely library:
+  
+  vehicle_in_zone(centroid, zone) = zone.contains(Point(centroid))
+
+6.2 ZONE HISTORY TRACKING
+--------------------------
+For each confirmed track T_i, maintain zone history:
+  
+  ZH_i = [(frame_1, zone_1), (frame_2, zone_2), ..., (frame_k, zone_k)]
+
+Where:
+  frame_j = frame number
+  zone_j ∈ {A, B, C, None} (or {A_L, B_L, C_L, A_R, B_R, C_R, None})
+
+6.3 ZONE SEQUENCE CONDENSATION
+-------------------------------
+Convert raw zone history to confirmed sequence using minimum confirmation:
+
+Algorithm:
+  Input: ZH = [(f1,z1), (f2,z2), ..., (f_n,z_n)], min_confirm=3
+  Output: Confirmed sequence CS
+  
+  1. Initialize: current_zone = None, count = 0, CS = []
+  2. For each (frame, zone) in ZH:
+     a. If zone == current_zone:
+        count += 1
+     b. Else:
+        If count ≥ min_confirm:
+          CS.append(current_zone)
+        current_zone = zone
+        count = 1
+  3. Finalize: If count ≥ min_confirm: CS.append(current_zone)
+  4. Return CS
+
+Example:
+  Raw: [(1,A), (2,A), (3,A), (4,A), (5,B), (6,B), (7,None), (8,B), (9,C), (10,C), (11,C)]
+  min_confirm = 3
+  Confirmed: [A, B, C]
+
+Location: scripts/detect_wrong_way_from_video.py :: condensed_zone_sequence()
+
+================================================================================
+7. STAGE 6: WRONG-WAY CLASSIFICATION
+================================================================================
+
+7.1 PATTERN MATCHING
+---------------------
+For UNIDIRECTIONAL highways:
+  Normal flow: A → B → C
+  Wrong-way: C → B → A
+
+For BIDIRECTIONAL highways:
+  LEFT side:
+    Normal: A_L → B_L → C_L
+    Wrong-way: C_L → B_L → A_L
+  
+  RIGHT side:
+    Normal: C_R → B_R → A_R
+    Wrong-way: A_R → B_R → C_R
+
+Wrong-Way Detection Logic:
+  For track T with side S and confirmed sequence CS:
+    1. Check: len(CS) ≥ 3
+    2. Extract last 3 zones: pattern = CS[-3:]
+    3. Look up flow_mappings[S][pattern]
+    4. If mapping == "wrong_way": ALERT
+
+7.2 DISPLACEMENT VECTOR VALIDATION 
+----------------------------------------------
+Additional confidence check using vehicle motion direction:
+
+Displacement Vector Computation:
+  Given centroid history: C = [(x1,y1), (x2,y2), ..., (x_n,y_n)]
+  Window size: w = 6 frames
+  
+  Recent centroids: C_recent = C[-w:]
+  Start point: c_start = mean(C_recent[:w//2])
+  End point: c_end = mean(C_recent[w//2:])
+  
+  Displacement: d = c_end - c_start = (Δx, Δy)
+  
+  Magnitude: ||d|| = √(Δx² + Δy²)
+
+Direction Alignment:
+  For wrong-way pattern C→B→A (moving upward in image):
+    Expected direction: d_expected = (0, -1)  (negative Y)
+  
+  Normalized displacement: d_unit = d / ||d||
+  
+  Alignment score: α = d_unit · d_expected (dot product)
+  
+  Accept if: α ≥ threshold (default 0.3) AND ||d|| ≥ min_displacement (default 1.0)
+
+This ensures the vehicle is actually moving in the wrong direction, not just
+briefly entering zones in wrong order.
+
+Location: scripts/detect_wrong_way_from_video.py :: validate_wrong_way()
+
+================================================================================
+8. STAGE 7: VISUALIZATION & REPORTING
+================================================================================
+
+8.1 OUTPUT FILES
+----------------
+For each processed video, generate:
+
+1. Track Files (JSON):
+   - results/video_name/tracks/frame_000000.json
+   - One file per frame containing all track data:
+     {
+       "track_id": 1,
+       "bbox": [x1, y1, x2, y2],
+       "centroid": [cx, cy],
+       "side": "LEFT",
+       "score": 0.95,
+       "hits": 25,
+       "age": 30,
+       "time_since_update": 0
+     }
+
+2. Alerts (JSON):
+   - results/video_name/alerts/wrong_way_alerts.json
+     {
+       "total_alerts": 2,
+       "alerts": [
+         {
+           "track_id": 5,
+           "alert_type": "WRONG_WAY",
+           "side": "LEFT",
+           "zone_sequence": "C_L-B_L-A_L",
+           "matched_pattern": "C_L-B_L-A_L",
+           "frame": 180,
+           "timestamp": 6.0,
+           "centroid": [350, 200],
+           "bbox": [300, 150, 400, 250],
+           "hits": 35
+         }
+       ],
+       "detection_params": {
+         "min_zone_confirm": 3,
+         "min_hits": 3,
+         "carriageway_mode": "bidirectional"
+       }
+     }
+
+3. Alerts (CSV):
+   - results/video_name/alerts/wrong_way_alerts.csv
+   - Tabular format for easy analysis in Excel/pandas
+
+4. Visualization Video:
+   - results/video_name/wrong_way_detection_output.mp4
+   - Annotated video with:
+     * Bounding boxes (color-coded by side)
+     * Track IDs
+     * Zone overlays (semi-transparent polygons)
+     * Flow direction indicators (LEFT panel: A→B→C, RIGHT panel: C→B→A)
+     * Alert markers (red boxes for wrong-way vehicles)
+     * Frame counter and FPS display
+
+8.2 VISUALIZATION RENDERING
+----------------------------
+For each frame:
+  1. Draw zone polygons with transparency (alpha=0.3)
+  2. Draw bounding boxes:
+     - LEFT side: Green
+     - RIGHT side: Blue
+     - Wrong-way: Red
+  3. Add track ID labels above boxes
+  4. Overlay flow direction panels:
+     - Top-left: "LEFT: A_L → B_L → C_L ✓"
+     - Top-right: "RIGHT: C_R → B_R → A_R ✓"
+  5. Bottom panel: Frame number, FPS, alert count
+  6. Encode to video at original FPS using cv2.VideoWriter
+
+Location: scripts/detect_wrong_way_from_video.py :: create_visualization_video()
+
+================================================================================
+9. KEY PARAMETERS & TUNING
+================================================================================
+
+Detection Parameters:
+  - conf_threshold: 0.15-0.45 (lower = more detections, more false positives)
+  - model_size: 640 (YOLOv10m input size)
+
+Tracking Parameters:
+  - max_age: 30-60 frames (how long to keep track without detection)
+  - min_hits: 1-3 (confirmations needed before tracking)
+  - iou_threshold: 0.2-0.4 (matching sensitivity)
+
+Validation Parameters:
+  - min_zone_confirm: 2-4 frames (stability in zone before confirmation)
+  - dot_thresh: 0.2-0.5 (displacement alignment threshold)
+  - disp_window: 4-8 frames (displacement calculation window)
+  - min_displacement: 0.5-2.0 pixels (minimum movement to consider)
+
+Recommended Settings:
+  - Standard highway: conf=0.25, max_age=30, min_hits=3, min_zone_confirm=3
+  - Complex U-turns: conf=0.15, max_age=60, min_hits=1, min_zone_confirm=2
+
+================================================================================
+10. MATHEMATICAL SUMMARY
+================================================================================
+
+10.1 DETECTION
+--------------
+  Y(I) → {(b_i, s_i) | s_i ≥ τ}
+  where Y = YOLOv10m model, τ = confidence threshold
+
+10.2 TRACKING
+-------------
+  State: x_t = [c_x, c_y, v_x, v_y, w, h]^T
+  Prediction: x̂_{t|t-1} = F·x_{t-1|t-1}
+  Update: x_{t|t} = x̂_{t|t-1} + K_t·(z_t - H·x̂_{t|t-1})
+  
+10.3 ASSOCIATION
+----------------
+  C[i,j] = 1 - IoU(d_i, t_j)
+  Assignment: min Σ C[i,j] subject to IoU ≥ τ_iou
+
+10.4 ZONE VALIDATION
+--------------------
+  Zone membership: z_t = {Z_k | c_t ∈ Z_k}
+  Condensation: CS = condense(ZH, min_confirm)
+  Pattern match: is_wrong_way(CS[-3:], flow_mappings[side])
+
+10.5 DISPLACEMENT VALIDATION
+-----------------------------
+  d = mean(C[-w:w//2]) - mean(C[-w//2:])
+  α = (d/||d||) · d_expected
+  Valid if: α ≥ τ_dot AND ||d|| ≥ min_disp
+
+================================================================================
+11. PIPELINE EXECUTION FLOW
+================================================================================
+
+INPUT: video.mp4, config.json
+OUTPUT: tracks/, alerts/, visualization.mp4
+
+1. Load video → Extract frames
+2. For each frame f_t:
+   a. Run YOLOv10 detection → detections D_t
+   b. Predict existing tracks → predictions P_t
+   c. Associate D_t with P_t using Hungarian
+   d. Update matched tracks (Kalman update)
+   e. Create new tracks for unmatched detections
+   f. Delete old tracks (time_since_update > max_age)
+   g. Assign sides (LEFT/RIGHT) to all tracks
+   h. Save track states to JSON
+
+3. Load all track JSONs
+4. For each track T_i:
+   a. Build zone history ZH_i
+   b. Condense to confirmed sequence CS_i
+   c. If len(CS_i) ≥ 3:
+      - Check pattern against flow_mappings
+      - If wrong_way: Create alert
+      - Optionally validate displacement
+
+5. Save alerts to JSON/CSV
+6. Generate visualization video
+7. Cleanup temporary files
+
+================================================================================
+12. DATASET & TRAINING
+================================================================================
+
+Training Dataset: UA-DETRAC
+- 6 sequences: MVI_20011, MVI_20032, MVI_39031, MVI_39311, MVI_39851, MVI_40711
+- 1,750 sampled frames
+- 1,031 annotated frames (59%)
+- YOLO format: class x_center y_center width height (normalized)
+- Single class: 'vehicle' (class 0)
+
+Data Split:
+- Training: 1,400 frames (80%)
+- Validation: 175 frames (10%)
+- Test: 175 frames (10%)
+
+Model Training:
+- Base model: YOLOv10m
+- Input size: 640×640
+- Batch size: 16 (GPU) or 2 (CPU)
+- Epochs: 12 (best checkpoint)
+- Optimizer: AdamW
+- Loss: CIoU + BCE
+
+Performance:
+- mAP@0.5: 87-97% (varies by sequence)
+- Inference speed: ~30 FPS (GPU), ~0.3 FPS (CPU)
+
+================================================================================
+13. FILE LOCATIONS
+================================================================================
+
+Main Pipeline:
+  scripts/detect_wrong_way_from_video.py
+
+Tracking:
+  src/tracking/kalman_tracker.py
+
+Utilities:
+  src/utils/side_assignment.py
+  src/utils/direction_vector.py
+
+Zone Configuration:
+  scripts/create_zone_config_interactive.py
+  configs/*.json
+
+Model:
+  best.pt (YOLOv10m trained weights)
+
+================================================================================
+14. LIMITATIONS & FUTURE IMPROVEMENTS
+================================================================================
+
+Current Limitations:
+1. CPU inference very slow (~0.3 FPS)
+2. ID switching on U-turns (tracker loses vehicle)
+3. Manual zone configuration required
+4. No vehicle type classification
+5. Single detection class
+
+Proposed Improvements:
+1. GPU acceleration for real-time processing
+2. DeepSORT with ReID features for better tracking through occlusions
+3. Automatic zone detection using lane detection
+4. Multi-class detection (car, truck, motorcycle)
+5. Speed estimation using homography
+6. Real-time alert streaming
+7. Integration with traffic management systems
+
+================================================================================
+END OF DOCUMENTATION
+================================================================================
