@@ -2,7 +2,7 @@
 WRONG-WAY VEHICLE DETECTION SYSTEM - COMPLETE PIPELINE DOCUMENTATION
 ================================================================================
 Author: AI_Project Team
-Last Updated: November 19, 2025
+Last Updated: November 20, 2025
 Model: YOLOv10m (best.pt)
 Framework: Ultralytics YOLO + Kalman SORT Tracking + Zone-Based Validation
 
@@ -901,6 +901,168 @@ Proposed Improvements:
 5. Speed estimation using homography
 6. Real-time alert streaming
 7. Integration with traffic management systems
+
+================================================================================
+15. TESTED VIDEOS & RESULTS
+================================================================================
+
+15.1 VIDEO3.MP4 (Bidirectional Highway)
+---------------------------------------
+Properties:
+  - Resolution: 1280×720
+  - FPS: 24.0
+  - Duration: 8.0 seconds (192 frames)
+  - Type: Bidirectional highway
+
+Configuration:
+  - Zones: 6 (A_L, B_L, C_L, A_R, B_R, C_R)
+  - Side assignment: Centroid X threshold = 640
+  - Flow mappings:
+    * LEFT: A_L→B_L→C_L (normal), C_L→B_L→A_L (wrong-way)
+    * RIGHT: A_R→B_R→C_R (normal), C_R→B_R→A_R (wrong-way)
+
+Results:
+  - Total tracks detected: 5
+  - Wrong-way violations: 1
+    * Track 4 (LEFT side)
+    * Frame: 149
+    * Pattern: C_L→B_L→A_L (reverse direction)
+    * Timestamp: ~6.2 seconds
+
+Output Files:
+  - Config: configs/video3_config.json
+  - Tracks: results/video3/tracks/
+  - Alerts: results/video3/alerts/
+  - Video: results/video3/wrong_way_detection_output.mp4
+
+15.2 VIDEO4.MP4 (Bidirectional Highway)
+---------------------------------------
+Properties:
+  - Resolution: 1280×720
+  - FPS: 24.0
+  - Duration: 8.0 seconds (192 frames)
+  - Type: Bidirectional highway
+
+Configuration:
+  - Zones: 6 (A_L, B_L, C_L, A_R, B_R, C_R)
+  - Side assignment: Centroid X threshold = 640
+  - Flow mappings:
+    * LEFT: A_L→B_L→C_L (normal), C_L→B_L→A_L (wrong-way)
+    * RIGHT: A_R→B_R→C_R (normal), C_R→B_R→A_R (wrong-way)
+
+Results:
+  - Total tracks detected: 8
+  - Wrong-way violations: 1
+    * Track 3 (LEFT side)
+    * Frame: 151
+    * Pattern: C_L→B_L→A_L (reverse direction)
+    * Timestamp: ~5.03 seconds
+    * Alignment score: 0.676
+
+Output Files:
+  - Config: configs/video4_config.json
+  - Tracks: results/video4/tracks/
+  - Alerts: results/video4/alerts/wrong_way_alerts.json
+  - Video: results/video4/wrong_way_detection_output.mp4
+
+Key Observations:
+  - Both videos successfully detected wrong-way vehicles on LEFT carriageway
+  - Zone-based validation correctly identified reverse flow pattern C_L→B_L→A_L
+  - Side assignment (threshold 640) properly separated LEFT/RIGHT traffic
+  - Visualization videos show red bounding boxes and alert banners for violations
+
+================================================================================
+16. CRITICAL BUGS FIXED (November 20, 2025)
+================================================================================
+
+BUG #1: Inverted Flow Mappings for RIGHT Side
+----------------------------------------------
+Location: configs/video3_config.json, configs/video4_config.json
+Problem: RIGHT carriageway flow mappings were inverted
+  - Had: "C_R-B_R-A_R": "normal", "A_R-B_R-C_R": "wrong_way"
+  - Should be: "A_R-B_R-C_R": "normal", "C_R-B_R-A_R": "wrong_way"
+
+Root Cause: Zone configuration tool auto-generated flows assuming both 
+carriageways go same direction, didn't account for bidirectional highways
+
+Fix Applied: Swapped normal/wrong_way values in flow_mappings for RIGHT side
+
+Impact: Without this fix, RIGHT side normal traffic incorrectly flagged as 
+wrong-way, and actual wrong-way vehicles missed
+
+BUG #2: Missing Side Assignment Function
+-----------------------------------------
+Location: scripts/detect_wrong_way_from_video.py
+Problem: Function update_track_sides() was called but didn't exist
+Result: Tracks never got 'side' field (LEFT/RIGHT) assigned
+
+Fix Applied: Created function (lines 338-352) that assigns sides based on 
+centroid_x vs threshold:
+  - side = "LEFT" if centroid_x < threshold
+  - side = "RIGHT" if centroid_x >= threshold
+
+Impact: Without side assignment, validation couldn't distinguish LEFT/RIGHT 
+carriageways, causing all vehicles to be validated against same flow rules
+
+BUG #3: Incomplete Config Loading
+----------------------------------
+Location: scripts/detect_wrong_way_from_video.py lines 137-180
+Problem: load_config() only parsed zones A, B, C (unidirectional mode), 
+didn't pass through bidirectional configuration fields
+
+Result: carriageway_mode, side_assignment, flow_mappings were None after loading
+
+Fix Applied: Updated load_config() to:
+  1. Parse bidirectional zones (A_L, B_L, C_L, A_R, B_R, C_R)
+  2. Pass through carriageway_mode field
+  3. Pass through side_assignment config
+  4. Pass through flow_mappings structure
+
+Impact: Bidirectional mode was completely broken before this fix
+
+BUG #4: Hardcoded Flow Text in Visualization
+---------------------------------------------
+Location: scripts/detect_wrong_way_from_video.py lines 738-752
+Problem: Flow direction panel showed hardcoded "A → B → C" / "C → B → A", 
+not actual config values
+
+Fix Applied: Changed to dynamically read from flow_mappings:
+  - Extracts normal/wrong_way patterns from config
+  - Displays correct flow directions for LEFT and RIGHT sides
+
+Impact: Visualization showed incorrect flow directions, confusing interpretation
+
+BUG #5: Total Alert Count Instead of Per-Frame
+-----------------------------------------------
+Location: scripts/detect_wrong_way_from_video.py lines 778-782
+Problem: Alert counter showed total alerts across entire video (always "1" 
+after first detection)
+
+Fix Applied: Changed to show current frame alert count:
+  - Count wrong-way tracks visible in current frame
+  - Display 0 or 1 (or more if multiple violations in same frame)
+
+Impact: Alert counter misleading, didn't reflect actual frame status
+
+BUG #6: Alert Banner Only on Detection Frame
+---------------------------------------------
+Location: scripts/detect_wrong_way_from_video.py lines 715-727
+Problem: Red alert banner only appeared on single frame where wrong-way was 
+first confirmed (e.g., frame 149), disappeared in subsequent frames even 
+though vehicle still visible
+
+Fix Applied: Show banner in every frame containing wrong-way track:
+  1. Load all alerts upfront to identify wrong-way track IDs
+  2. Check each frame's tracks against wrong-way IDs
+  3. Display banner whenever any wrong-way track present
+
+Impact: Alert visualization inconsistent, missed ongoing violations
+
+Testing & Validation:
+  - All fixes verified on video3.mp4 (1 violation detected correctly)
+  - All fixes verified on video4.mp4 (1 violation detected correctly)
+  - Both LEFT and RIGHT flow patterns tested
+  - Visualization videos confirm proper alert display
 
 ================================================================================
 END OF DOCUMENTATION

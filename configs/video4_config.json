@@ -1,0 +1,502 @@
+{
+  "video_resolution": {
+    "width": 1280,
+    "height": 720
+  },
+  "camera_info": {
+    "name": "video4.mp4",
+    "description": "Manually configured zones"
+  },
+  "carriageway_mode": "bidirectional",
+  "side_assignment": {
+    "method": "centroid_x_threshold",
+    "threshold": 640,
+    "description": "Vehicles with centroid_x < 640 assigned to LEFT, >= 640 to RIGHT"
+  },
+  "zones": {
+    "A_L": {
+      "type": "polygon",
+      "side": "LEFT",
+      "points": [
+        [
+          227,
+          0
+        ],
+        [
+          412,
+          1
+        ],
+        [
+          590,
+          3
+        ],
+        [
+          620,
+          5
+        ],
+        [
+          612,
+          199
+        ],
+        [
+          613,
+          221
+        ],
+        [
+          438,
+          216
+        ],
+        [
+          257,
+          211
+        ],
+        [
+          156,
+          206
+        ],
+        [
+          118,
+          203
+        ],
+        [
+          170,
+          107
+        ],
+        [
+          193,
+          64
+        ],
+        [
+          229,
+          2
+        ]
+      ]
+    },
+    "B_L": {
+      "type": "polygon",
+      "side": "LEFT",
+      "points": [
+        [
+          118,
+          205
+        ],
+        [
+          274,
+          209
+        ],
+        [
+          415,
+          216
+        ],
+        [
+          528,
+          217
+        ],
+        [
+          612,
+          222
+        ],
+        [
+          609,
+          330
+        ],
+        [
+          607,
+          412
+        ],
+        [
+          605,
+          450
+        ],
+        [
+          427,
+          441
+        ],
+        [
+          265,
+          426
+        ],
+        [
+          125,
+          415
+        ],
+        [
+          64,
+          413
+        ],
+        [
+          64,
+          348
+        ],
+        [
+          64,
+          302
+        ],
+        [
+          102,
+          238
+        ],
+        [
+          112,
+          212
+        ],
+        [
+          117,
+          206
+        ]
+      ]
+    },
+    "C_L": {
+      "type": "polygon",
+      "side": "LEFT",
+      "points": [
+        [
+          64,
+          409
+        ],
+        [
+          229,
+          423
+        ],
+        [
+          414,
+          441
+        ],
+        [
+          548,
+          450
+        ],
+        [
+          604,
+          450
+        ],
+        [
+          605,
+          567
+        ],
+        [
+          601,
+          639
+        ],
+        [
+          599,
+          678
+        ],
+        [
+          501,
+          677
+        ],
+        [
+          354,
+          678
+        ],
+        [
+          210,
+          676
+        ],
+        [
+          97,
+          675
+        ],
+        [
+          66,
+          674
+        ],
+        [
+          68,
+          587
+        ],
+        [
+          64,
+          502
+        ],
+        [
+          67,
+          441
+        ],
+        [
+          67,
+          409
+        ]
+      ]
+    },
+    "A_R": {
+      "type": "polygon",
+      "side": "RIGHT",
+      "points": [
+        [
+          650,
+          678
+        ],
+        [
+          645,
+          610
+        ],
+        [
+          646,
+          540
+        ],
+        [
+          643,
+          476
+        ],
+        [
+          643,
+          448
+        ],
+        [
+          750,
+          445
+        ],
+        [
+          866,
+          446
+        ],
+        [
+          959,
+          445
+        ],
+        [
+          1056,
+          445
+        ],
+        [
+          1129,
+          449
+        ],
+        [
+          1194,
+          449
+        ],
+        [
+          1273,
+          443
+        ],
+        [
+          1272,
+          510
+        ],
+        [
+          1277,
+          587
+        ],
+        [
+          1275,
+          651
+        ],
+        [
+          1275,
+          675
+        ],
+        [
+          1082,
+          671
+        ],
+        [
+          996,
+          678
+        ],
+        [
+          842,
+          680
+        ],
+        [
+          728,
+          677
+        ],
+        [
+          653,
+          677
+        ]
+      ]
+    },
+    "B_R": {
+      "type": "polygon",
+      "side": "RIGHT",
+      "points": [
+        [
+          644,
+          442
+        ],
+        [
+          643,
+          353
+        ],
+        [
+          649,
+          264
+        ],
+        [
+          643,
+          223
+        ],
+        [
+          770,
+          213
+        ],
+        [
+          887,
+          217
+        ],
+        [
+          1036,
+          210
+        ],
+        [
+          1112,
+          205
+        ],
+        [
+          1155,
+          209
+        ],
+        [
+          1191,
+          273
+        ],
+        [
+          1215,
+          320
+        ],
+        [
+          1254,
+          384
+        ],
+        [
+          1272,
+          435
+        ],
+        [
+          1271,
+          444
+        ],
+        [
+          1136,
+          450
+        ],
+        [
+          983,
+          450
+        ],
+        [
+          769,
+          446
+        ],
+        [
+          643,
+          444
+        ]
+      ]
+    },
+    "C_R": {
+      "type": "polygon",
+      "side": "RIGHT",
+      "points": [
+        [
+          645,
+          222
+        ],
+        [
+          645,
+          124
+        ],
+        [
+          647,
+          65
+        ],
+        [
+          646,
+          18
+        ],
+        [
+          647,
+          1
+        ],
+        [
+          756,
+          3
+        ],
+        [
+          867,
+          4
+        ],
+        [
+          973,
+          4
+        ],
+        [
+          1043,
+          3
+        ],
+        [
+          1078,
+          51
+        ],
+        [
+          1101,
+          96
+        ],
+        [
+          1117,
+          143
+        ],
+        [
+          1131,
+          178
+        ],
+        [
+          1150,
+          207
+        ],
+        [
+          948,
+          213
+        ],
+        [
+          800,
+          214
+        ],
+        [
+          683,
+          219
+        ],
+        [
+          648,
+          222
+        ]
+      ]
+    }
+  },
+  "flow_mappings": {
+    "LEFT": {
+      "A_L-B_L-C_L": "normal",
+      "C_L-B_L-A_L": "wrong_way",
+      "description": "Left carriageway: A_L-B_L-C_L is correct flow"
+    },
+    "RIGHT": {
+      "A_R-B_R-C_R": "normal",
+      "C_R-B_R-A_R": "wrong_way",
+      "description": "Right carriageway: A_R-B_R-C_R is correct flow (bottom to top)"
+    }
+  },
+  "direction_vectors": {
+    "LEFT": {
+      "expected_normal": null,
+      "expected_wrong": null,
+      "computation": "dynamic",
+      "description": "Computed from normal-flow tracks on left side at runtime"
+    },
+    "RIGHT": {
+      "expected_normal": null,
+      "expected_wrong": null,
+      "computation": "dynamic",
+      "description": "Computed from normal-flow tracks on right side at runtime"
+    }
+  },
+  "validation_params": {
+    "MIN_ZONE_CONFIRM": 3,
+    "DOT_THRESH": 0.3,
+    "DISP_WINDOW": 6,
+    "MIN_DISPLACEMENT": 1.0
+  }
+}

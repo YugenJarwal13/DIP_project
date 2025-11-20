@@ -135,29 +135,51 @@ Examples:
 
 
 def load_config(config_path):
-    """Load zone configuration from JSON file."""
+    """Load zone configuration from JSON file (supports both unidirectional and bidirectional)."""
     with open(config_path, 'r') as f:
         cfg = json.load(f)
     
+    # Check if bidirectional or unidirectional
+    carriageway_mode = cfg.get('carriageway_mode', 'single')
+    
     # Parse zones
     zones = {}
-    for zone_name in ['A', 'B', 'C']:
-        pts = cfg.get('zones', {}).get(zone_name, {}).get('points', None)
-        if pts:
-            zones[zone_name] = Polygon([(p[0], p[1]) for p in pts])
-        else:
-            zones[zone_name] = None
+    if carriageway_mode == 'bidirectional':
+        # Parse bidirectional zones: A_L, B_L, C_L, A_R, B_R, C_R
+        for zone_name in ['A_L', 'B_L', 'C_L', 'A_R', 'B_R', 'C_R']:
+            pts = cfg.get('zones', {}).get(zone_name, {}).get('points', None)
+            if pts:
+                zones[zone_name] = Polygon([(p[0], p[1]) for p in pts])
+            else:
+                zones[zone_name] = None
+    else:
+        # Parse unidirectional zones: A, B, C
+        for zone_name in ['A', 'B', 'C']:
+            pts = cfg.get('zones', {}).get(zone_name, {}).get('points', None)
+            if pts:
+                zones[zone_name] = Polygon([(p[0], p[1]) for p in pts])
+            else:
+                zones[zone_name] = None
     
-    # Parse expected mapping
+    # Parse expected mapping (legacy for unidirectional)
     expected_mapping = cfg.get('expected_mapping', {"A->C": "normal", "C->A": "wrong_way"})
+    
+    # Get FPS from video_resolution or top-level
+    fps = cfg.get('fps', None)
+    if fps is None:
+        video_res = cfg.get('video_resolution', {})
+        fps = video_res.get('fps', 30)  # Default to 30 if not found
     
     return {
         'zones': zones,
         'expected_mapping': expected_mapping,
-        'image_width': cfg.get('image_width', None),
-        'image_height': cfg.get('image_height', None),
-        'fps': cfg.get('fps', None),
-        'sequence_id': cfg.get('sequence_id', 'unknown')
+        'carriageway_mode': carriageway_mode,
+        'side_assignment': cfg.get('side_assignment', {}),
+        'flow_mappings': cfg.get('flow_mappings', {}),
+        'image_width': cfg.get('image_width', cfg.get('video_resolution', {}).get('width', None)),
+        'image_height': cfg.get('image_height', cfg.get('video_resolution', {}).get('height', None)),
+        'fps': fps,
+        'sequence_id': cfg.get('sequence_id', cfg.get('camera_info', {}).get('name', 'unknown'))
     }
 
 
@@ -317,8 +339,6 @@ def run_detection_and_tracking(frames_dir, model_path, output_dir, config, args)
         # Assign sides to tracks if config has bidirectional mode
         if config.get('carriageway_mode') == 'bidirectional' and 'side_assignment' in config:
             frame_tracks = update_track_sides(frame_tracks, config['side_assignment'])
-            if frame_idx == 0:  # Debug print for first frame
-                print(f"✅ Bi-directional mode: Assigned sides to {len(frame_tracks)} tracks")
         
         # Save per-frame JSON
         track_file = tracks_dir / f"frame_{frame_idx:06d}.json"
@@ -330,6 +350,26 @@ def run_detection_and_tracking(frames_dir, model_path, output_dir, config, args)
     print(f"   Total unique tracks: {max_track_id}")
     
     return tracks_dir
+
+
+def update_track_sides(frame_tracks, side_assignment):
+    """Assign LEFT or RIGHT side to each track based on centroid position."""
+    method = side_assignment.get('method', 'centroid_x_threshold')
+    threshold = side_assignment.get('threshold', 640)
+    
+    for track in frame_tracks:
+        cx, cy = track['centroid']
+        
+        if method == 'centroid_x_threshold':
+            # If centroid_x < threshold: LEFT side, else RIGHT side
+            if cx < threshold:
+                track['side'] = 'LEFT'
+            else:
+                track['side'] = 'RIGHT'
+        else:
+            track['side'] = 'UNKNOWN'
+    
+    return frame_tracks
 
 
 def centroid_from_bbox(bbox):
@@ -639,9 +679,17 @@ def create_visualization_video(frames_dir, tracks_dir, alerts, config, output_di
         
         # Load tracks for this frame
         track_file = Path(tracks_dir) / f"frame_{frame_idx:06d}.json"
+        frame_tracks = []
+        current_frame_alert_tracks = []
+        
         if track_file.exists():
             with open(track_file, 'r') as f:
                 frame_tracks = json.load(f)
+            
+            # Identify which tracks in this frame are alerts
+            for track in frame_tracks:
+                if track['track_id'] in alert_tracks:
+                    current_frame_alert_tracks.append(track['track_id'])
             
             # Draw tracks
             for track in frame_tracks:
@@ -665,15 +713,17 @@ def create_visualization_video(frames_dir, tracks_dir, alerts, config, output_di
                 cv2.putText(frame, label, (x1, y1 - 10),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
         
-        # Draw alert banner if this frame has an alert
-        if frame_idx in alert_frames:
-            alert = alert_frames[frame_idx]
-            banner_text = f"WRONG-WAY ALERT! Track {alert['track_id']} - {alert['zone_sequence']}"
-            
-            # Red banner at top
-            cv2.rectangle(frame, (0, 0), (w, 50), (0, 0, 200), -1)
-            cv2.putText(frame, banner_text, (10, 35),
-                       cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
+        # Draw alert banner if any wrong-way tracks are visible in this frame
+        if current_frame_alert_tracks:
+            # Show banner for each wrong-way vehicle in frame
+            for idx, tid in enumerate(current_frame_alert_tracks):
+                banner_y = idx * 55
+                banner_text = f"WRONG-WAY ALERT! Track ID {tid}"
+                
+                # Red banner at top
+                cv2.rectangle(frame, (0, banner_y), (w, banner_y + 50), (0, 0, 200), -1)
+                cv2.putText(frame, banner_text, (10, banner_y + 35),
+                           cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
         
         # ========== LEFT SIDE PANEL: Flow Information ==========
         panel_width = 280
@@ -693,16 +743,22 @@ def create_visualization_video(frames_dir, tracks_dir, alerts, config, output_di
                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
         
         if is_bidirectional:
+            # Get normal flow patterns from config
+            left_normal = [k for k, v in flow_mappings.get('LEFT', {}).items() if v == 'normal']
+            right_normal = [k for k, v in flow_mappings.get('RIGHT', {}).items() if v == 'normal']
+            
             # LEFT side flow
             cv2.putText(frame, "LEFT SIDE:", (panel_x + 10, panel_y + 55),
                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, (100, 255, 100), 2)
-            cv2.putText(frame, "A -> B -> C", (panel_x + 20, panel_y + 85),
+            left_text = left_normal[0].replace('-', ' -> ') if left_normal else "A -> B -> C"
+            cv2.putText(frame, left_text, (panel_x + 20, panel_y + 85),
                        cv2.FONT_HERSHEY_SIMPLEX, 0.65, (50, 255, 50), 2)
             
             # RIGHT side flow
             cv2.putText(frame, "RIGHT SIDE:", (panel_x + 10, panel_y + 115),
                        cv2.FONT_HERSHEY_SIMPLEX, 0.55, (150, 200, 255), 2)
-            cv2.putText(frame, "C -> B -> A", (panel_x + 20, panel_y + 145),
+            right_text = right_normal[0].replace('-', ' -> ') if right_normal else "C -> B -> A"
+            cv2.putText(frame, right_text, (panel_x + 20, panel_y + 145),
                        cv2.FONT_HERSHEY_SIMPLEX, 0.65, (100, 150, 255), 2)
         else:
             # Unidirectional flow
@@ -731,9 +787,10 @@ def create_visualization_video(frames_dir, tracks_dir, alerts, config, output_di
         cv2.putText(frame, fps_text, (15, bottom_y + 55),
                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (100, 255, 255), 2)
         
-        # Alert count
-        alert_text = f"Alerts: {len(alerts)}"
-        alert_color = (0, 0, 255) if len(alerts) > 0 else (0, 255, 0)
+        # Alert count for current frame
+        current_alert_count = len(current_frame_alert_tracks)
+        alert_text = f"Alerts: {current_alert_count}"
+        alert_color = (0, 0, 255) if current_alert_count > 0 else (0, 255, 0)
         cv2.putText(frame, alert_text, (w - 150, bottom_y + 30),
                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, alert_color, 2)
         
